@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>もぐらたたき</title>
+        <link rel="icon" href="data:,">
+        <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script>
+            //モグラと判定の設定
+            AFRAME.registerComponent('mogura', {
+                init: function () {
+                    this.el.innerHTML = `
+                    <a-cylinder class="mole-body" radius="0.5" height="1.0" color="#A66A3F"></a-cylinder>
+                    <a-sphere class="mole-body" position="0 0.5 0" radius="0.5" color="#A66A3F"></a-sphere>
+                    <a-sphere position="-0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
+                    <a-sphere position="0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
+                    <a-sphere position="0 0.35 0.5" radius="0.09" color="#f6a4b5"></a-sphere>
+                    `;
+
+                    this.el.addEventListener('click', (evt) => {
+                        if (evt)
+                            evt.stopPropagation();
+                        const id = this.el.getAttribute('id');
+                        if (id && id.startsWith('mole')) {
+                            const index = parseInt(id.replace('mole', ''), 10);
+                            hitMole(index);
+                        }
+                    });
+                }
+            });
+        </script>
+    </head>
+
+    <body>
+    <a-scene cursor="rayOrigin: mouse" raycaster="objects: .clickable; far: 100">
+        <a-entity id="ctlR" laser-controls="hand: right" raycaster="lineColor: red; objects: .clickable; far: 100"></a-entity>
+        <a-entity id="ctlL" laser-controls="hand: left" raycaster="lineColor: yellow; objects: .clickable; far: 100"></a-entity>
+
+        <a-sky color="#87CEEB"></a-sky>
+        <a-plane
+            position="0 0 -5"
+            rotation="-90 0 0"
+            width="100"
+            height="100"
+            color="#7A4A21">
+        </a-plane>
+
+         <!--奥の穴-->
+        <a-circle position="-2.8 0.001 -6.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="0 0.001 -6.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="2.8 0.001 -6.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+
+        <!--真ん中の穴-->
+        <a-circle position="-2.8 0.001 -4.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="0 0.001 -4.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="2.8 0.001 -4.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+
+        <!--手前の穴-->
+        <a-circle position="-2.8 0.001 -2.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="0 0.001 -2.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+        <a-circle position="2.8 0.001 -2.5" rotation="-90 0 0" radius="0.8" color="black"></a-circle>
+
+        <!--奥のモグラ-->
+        <a-entity id="mole0" mogura position="-2.8 -1.5 -6.5" visible="false"></a-entity>
+        <a-entity id="mole1" mogura position="0 -1.5 -6.5" visible="false"></a-entity>
+        <a-entity id="mole2" mogura position="2.8 -1.5 -6.5" visible="false"></a-entity>
+
+        <!--真ん中のモグラ-->
+        <a-entity id="mole3" mogura position="-2.8 -1.5 -4.5" visible="false"></a-entity>
+        <a-entity id="mole4" mogura position="0 -1.5 -4.5" visible="false"></a-entity>
+        <a-entity id="mole5" mogura position="2.8 -1.5 -4.5" visible="false"></a-entity>
+
+        <!--手前のモグラ-->
+        <a-entity id="mole6" mogura position="-2.8 -1.5 -2.5" visible="false"></a-entity>
+        <a-entity id="mole7" mogura position="0 -1.5 -2.5" visible="false"></a-entity>
+        <a-entity id="mole8" mogura position="2.8 -1.5 -2.5" visible="false"></a-entity>
+
+        <!--スタートボタン-->
+        <a-box
+            id="startButton"
+            class="clickable"
+            position="0 1.8 -3.5"
+            width="2.5"
+            height="0.8"
+            depth="0.2"
+            color="#e53935">
+        </a-box>
+
+        <a-text
+            id="startText"
+            value="START"
+            position="0 1.8 -3.3"
+            align="center"
+            color="white"
+            scale="2 2 2">
+        </a-text>
+
+        <!--タイムアップ表示-->
+        <a-text
+            id="timeUpText"
+            value="TIME UP!"
+            position="0 2.0 -3.5"
+            align="center"
+            color="#FF3D00"
+            scale="4 4 4"
+            visible="false">
+        </a-text>
+
+        <!--タイトル-->
+        <a-text
+            value="MOGURA TATAKI"
+            position="0 6.5 -9"
+            align="center"
+            color="#FFFFFF"
+            scale="8 8 8">
+        </a-text>
+
+        <!--タイム・スコア-->
+        <a-text
+            id="time"
+            value="TIME : 30"
+            position="-2.5 3.5 -5"
+            align="center"
+            scale="3 3 3"
+            color="#ffffff">
+        </a-text>
+        <a-text
+            id="score"
+            value="SCORE : 0"
+            position="2.5 3.5 -5"
+            align="center"
+            scale="3 3 3"
+            color="#ffffff">
+        </a-text>
+
+        <!--カメラ-->
+        <a-camera position="0 1.6 1.5"></a-camera>
+
+    </a-scene>
+
+    <script>
+        let time = 30;
+        let score = 0;
+        let timer;
+        let game;
+        let playing = false;
+
+        const moles = [];
+        const moleTimer = [];
+        const moleState = [false, false, false, false, false, false, false, false, false];
+
+        const timeText = document.querySelector("#time");
+        const scoreText = document.querySelector("#score");
+        const startButton = document.querySelector("#startButton");
+        const startText = document.querySelector("#startText");
+        const timeUpText = document.querySelector("#timeUpText");
+
+        // 初期化：モグラ要素の保持
+        document.querySelector('a-scene').addEventListener('loaded', function () {
+            for (let i = 0; i < 9; i++) {
+                moles[i] = document.querySelector("#mole" + i);
+            }
+        });
+
+        //モグラを1匹出す
+        function showMole() {
+            if (!playing)
+                return;
+
+            const hidden = [];
+            for (let i = 0; i < 9; i++) {
+                if (!moleState[i]) {
+                    hidden.push(i);
+                }
+            }
+
+            if (hidden.length === 0)
+                return;
+
+            let x = hidden[Math.floor(Math.random() * hidden.length)];
+            let pos = moles[x].getAttribute("position");
+
+            moleState[x] = true;
+            moles[x].setAttribute("visible", "true");
+
+            //クリックできるようにする
+            moles[x].classList.add('clickable');
+            const bodies = moles[x].querySelectorAll('.mole-body');
+            bodies.forEach(body => body.classList.add('clickable'));
+
+            //出現
+            moles[x].setAttribute(
+                    "animation",
+                    `property: position; to: ${pos.x} 0 ${pos.z}; dur: 150`
+                    );
+
+            clearTimeout(moleTimer[x]);
+
+            //自動で引っ込む
+            moleTimer[x] = setTimeout(function () {
+                retractMole(x);
+            }, 800);
+        }
+
+        //モグラを引っ込める
+        function retractMole(x) {
+            if (!moles[x])
+                return;
+            let pos = moles[x].getAttribute("position");
+
+            //判定を無効化
+            moles[x].classList.remove('clickable');
+            const bodies = moles[x].querySelectorAll('.mole-body');
+            bodies.forEach(body => body.classList.remove('clickable'));
+
+            //潜る動き
+            moles[x].setAttribute(
+                    "animation",
+                    `property: position; to: ${pos.x} -1.5 ${pos.z}; dur: 150`
+                    );
+
+            //非表示
+            setTimeout(function () {
+                moleState[x] = false;
+                moles[x].setAttribute("visible", "false");
+            }, 150);
+        }
+
+        //モグラを叩く
+        function hitMole(x) {
+            if (!playing || !moleState[x])
+                return;
+
+            clearTimeout(moleTimer[x]);
+
+            score++;
+            scoreText.setAttribute("value", "SCORE : " + score);
+
+            //モグラを赤くする
+            const bodies = moles[x].querySelectorAll('.mole-body');
+            bodies.forEach(body => body.setAttribute("color", "#ff0000"));
+
+            //引っ込める
+            retractMole(x);
+
+            //元の色に戻す
+            setTimeout(function () {
+                bodies.forEach(body => body.setAttribute("color", "#A66A3F"));
+            }, 200);
+        }
+
+        //スタートボタン
+        startButton.addEventListener("click", function (evt) {
+            if (evt)
+                evt.stopPropagation();
+            if (playing)
+                return;
+
+            playing = true;
+            time = 30;
+            score = 0;
+
+            timeText.setAttribute("value", "TIME : " + time);
+            scoreText.setAttribute("value", "SCORE : " + score);
+
+            timeUpText.setAttribute("visible", false);
+            startButton.setAttribute("visible", false);
+            startButton.classList.remove("clickable");
+            startText.setAttribute("visible", false);
+
+            showMole();
+
+            //タイマー
+            timer = setInterval(function () {
+                if (!playing)
+                    return;
+
+                time--;
+                timeText.setAttribute("value", "TIME : " + time);
+
+                if (time <= 0) {
+                    clearInterval(timer);
+                    clearInterval(game);
+
+                    playing = false;
+
+                    //すべてのモグラを元に戻す
+                    for (let i = 0; i < 9; i++) {
+                        clearTimeout(moleTimer[i]);
+                        retractMole(i);
+                    }
+
+                    //タイムアップ表示（TIME UP! のみでシンプルに）
+                    timeUpText.setAttribute("value", "TIME UP!");
+                    timeUpText.setAttribute("visible", true);
+
+                    //少し待ってからスタート画面に戻る
+                    setTimeout(function () {
+                        timeUpText.setAttribute("visible", false);
+
+                        startText.setAttribute("value", "START");
+                        startButton.setAttribute("visible", true);
+                        startButton.classList.add("clickable");
+                        startText.setAttribute("visible", true);
+                    }, 2500);
+                }
+            }, 1000);
+
+            //モグラを繰り返し出す
+            game = setInterval(showMole, 900);
+        });
+    </script>
+</body>
+</html>
