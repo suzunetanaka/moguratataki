@@ -1,10 +1,78 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>もぐらたたき</title>
     <link rel="icon" href="data:," />
+    <style>
+      #audioControls {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1000;
+        display: grid;
+        justify-items: end;
+        gap: 8px;
+        color: #1d2729;
+        font-family: sans-serif;
+      }
+
+      #audioToggle {
+        width: 48px;
+        height: 48px;
+        border: 1px solid rgba(29, 39, 41, 0.2);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        color: inherit;
+        cursor: pointer;
+        font-size: 26px;
+        line-height: 1;
+      }
+
+      #audioToggle:focus-visible,
+      #audioPanel input:focus-visible {
+        outline: 3px solid #d84830;
+        outline-offset: 2px;
+      }
+
+      #audioPanel {
+        box-sizing: border-box;
+        width: min(260px, calc(100vw - 32px));
+        padding: 14px 16px;
+        border: 1px solid rgba(29, 39, 41, 0.2);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      #audioPanel[hidden] {
+        display: none;
+      }
+
+      .audio-control {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 12px;
+        align-items: center;
+      }
+
+      .audio-control + .audio-control {
+        margin-top: 12px;
+      }
+
+      .audio-control input {
+        grid-column: 1 / -1;
+        width: 100%;
+        margin: 0;
+        accent-color: #d84830;
+      }
+
+      .audio-control output {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script>
       AFRAME.registerComponent("mogura", {
@@ -136,6 +204,31 @@
       <a-camera position="0 1.6 1.5"></a-camera>
     </a-scene>
 
+    <div id="audioControls">
+      <button
+        id="audioToggle"
+        type="button"
+        aria-label="音量設定を表示"
+        aria-controls="audioPanel"
+        aria-expanded="false"
+        title="音量設定"
+      >
+        ♪
+      </button>
+      <div id="audioPanel" hidden>
+        <div class="audio-control">
+          <label for="bgmVolume">BGM</label>
+          <output id="bgmVolumeValue" for="bgmVolume">100%</output>
+          <input id="bgmVolume" type="range" min="0" max="100" value="100" />
+        </div>
+        <div class="audio-control">
+          <label for="seVolume">SE</label>
+          <output id="seVolumeValue" for="seVolume">100%</output>
+          <input id="seVolume" type="range" min="0" max="100" value="100" />
+        </div>
+      </div>
+    </div>
+
     <script>
       //ゲーム全体の状態
       let time = 30;
@@ -176,6 +269,36 @@
       const startButton = document.querySelector("#startButton");
       const startText = document.querySelector("#startText");
       const timeUpText = document.querySelector("#timeUpText");
+
+      //サウンド
+      const startSound = new Audio("sound/popcorn.mp3");
+      const moleSound = new Audio("sound/ニュッ2.mp3");
+      const hitSound = new Audio("sound/ピコッ.mp3");
+      const audioToggle = document.querySelector("#audioToggle");
+      const audioPanel = document.querySelector("#audioPanel");
+      const bgmVolume = document.querySelector("#bgmVolume");
+      const seVolume = document.querySelector("#seVolume");
+      const bgmVolumeValue = document.querySelector("#bgmVolumeValue");
+      const seVolumeValue = document.querySelector("#seVolumeValue");
+
+      audioToggle.addEventListener("click", function () {
+        const isExpanded = audioToggle.getAttribute("aria-expanded") === "true";
+        audioPanel.hidden = isExpanded;
+        audioToggle.setAttribute("aria-expanded", String(!isExpanded));
+      });
+
+      function updateAudioVolumes() {
+        startSound.volume = Number(bgmVolume.value) / 100;
+        const seLevel = Number(seVolume.value) / 100;
+        moleSound.volume = seLevel;
+        hitSound.volume = seLevel;
+        bgmVolumeValue.value = bgmVolume.value + "%";
+        seVolumeValue.value = seVolume.value + "%";
+      }
+
+      bgmVolume.addEventListener("input", updateAudioVolumes);
+      seVolume.addEventListener("input", updateAudioVolumes);
+      updateAudioVolumes();
 
       //初期化：9匹のモグラ要素を保持
       document.querySelector("a-scene").addEventListener("loaded", function () {
@@ -266,6 +389,8 @@
 
         applyLook(index, type);
         moles[index].setAttribute("visible", "true");
+        moleSound.currentTime = 0;
+        moleSound.play();
         moles[index].classList.add("clickable");
         moles[index]
           .querySelectorAll(".mole-body")
@@ -316,6 +441,9 @@
           return;
         }
 
+        hitSound.currentTime = 0;
+        hitSound.play();
+
         moleHittable[index] = false;
         clearTimeout(moleTimer[index]);
 
@@ -337,6 +465,10 @@
         if (playing) {
           return;
         }
+
+        startSound.currentTime = 0;
+        startSound.playbackRate = 1;
+        startSound.play();
 
         playing = true;
         time = 30;
@@ -360,6 +492,9 @@
 
           time--;
           timeText.setAttribute("value", "TIME : " + time);
+          if (time <= 10) {
+            startSound.playbackRate = 1.5;
+          }
 
           if (time <= 0) {
             // 出現予約を止め、すべてのモグラを引っ込めてゲームを終了
