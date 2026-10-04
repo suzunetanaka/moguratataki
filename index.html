@@ -5,74 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>もぐらたたき</title>
     <link rel="icon" href="data:," />
-    <style>
-      #audioControls {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        z-index: 1000;
-        display: grid;
-        justify-items: end;
-        gap: 8px;
-        color: #1d2729;
-        font-family: sans-serif;
-      }
-
-      #audioToggle {
-        width: 48px;
-        height: 48px;
-        border: 1px solid rgba(29, 39, 41, 0.2);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        color: inherit;
-        cursor: pointer;
-        font-size: 26px;
-        line-height: 1;
-      }
-
-      #audioToggle:focus-visible,
-      #audioPanel input:focus-visible {
-        outline: 3px solid #d84830;
-        outline-offset: 2px;
-      }
-
-      #audioPanel {
-        box-sizing: border-box;
-        width: min(260px, calc(100vw - 32px));
-        padding: 14px 16px;
-        border: 1px solid rgba(29, 39, 41, 0.2);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      }
-
-      #audioPanel[hidden] {
-        display: none;
-      }
-
-      .audio-control {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 8px 12px;
-        align-items: center;
-      }
-
-      .audio-control + .audio-control {
-        margin-top: 12px;
-      }
-
-      .audio-control input {
-        grid-column: 1 / -1;
-        width: 100%;
-        margin: 0;
-        accent-color: #d84830;
-      }
-
-      .audio-control output {
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script>
       AFRAME.registerComponent("mogura", {
@@ -110,7 +43,8 @@
         raycaster="lineColor: yellow; objects: .clickable; far: 100"
       ></a-entity>
 
-      <a-sky color="#87CEEB"></a-sky>
+      <!--<a-sky color="#87CEEB"></a-sky>-->
+      <a-sky color="#76BDEB"></a-sky>
       <a-plane
         position="0 0 -5"
         rotation="-90 0 0"
@@ -274,6 +208,7 @@
       const startSound = new Audio("sound/popcorn.mp3");
       const moleSound = new Audio("sound/ニュッ2.mp3");
       const hitSound = new Audio("sound/ピコッ.mp3");
+      const whistleSound = new Audio("sound/whistle.mp3");
       const audioToggle = document.querySelector("#audioToggle");
       const audioPanel = document.querySelector("#audioPanel");
       const bgmVolume = document.querySelector("#bgmVolume");
@@ -292,6 +227,7 @@
         const seLevel = Number(seVolume.value) / 100;
         moleSound.volume = seLevel;
         hitSound.volume = seLevel;
+        whistleSound.volume = seLevel;
         bgmVolumeValue.value = bgmVolume.value + "%";
         seVolumeValue.value = seVolume.value + "%";
       }
@@ -391,6 +327,7 @@
         moles[index].setAttribute("visible", "true");
         moleSound.currentTime = 0;
         moleSound.play();
+
         moles[index].classList.add("clickable");
         moles[index]
           .querySelectorAll(".mole-body")
@@ -493,7 +430,7 @@
           time--;
           timeText.setAttribute("value", "TIME : " + time);
           if (time <= 10) {
-            startSound.playbackRate = 1.5;
+            startSound.playbackRate = 1.6;
           }
 
           if (time <= 0) {
@@ -501,6 +438,7 @@
             clearInterval(timer);
             clearTimeout(game);
             playing = false;
+            startSound.pause();
 
             for (let index = 0; index < moles.length; index++) {
               clearTimeout(moleTimer[index]);
@@ -510,7 +448,8 @@
             // タイムアップ表示
             timeUpText.setAttribute("value", "TIME UP!");
             timeUpText.setAttribute("visible", true);
-
+            whistleSound.currentTime = 0;
+            whistleSound.play();
             // スタート画面に戻る
             setTimeout(function () {
               timeUpText.setAttribute("visible", false);
