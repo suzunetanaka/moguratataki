@@ -13,9 +13,19 @@
           this.el.innerHTML = `
             <a-cylinder class="mole-body" radius="0.5" height="1.0" color="#A66A3F"></a-cylinder>
             <a-sphere class="mole-body" position="0 0.5 0" radius="0.5" color="#A66A3F"></a-sphere>
-            <a-sphere class="mole-eye" position="-0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
-            <a-sphere class="mole-eye" position="0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
+            <a-sphere class="mole-eye left-eye" position="-0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
+            <a-sphere class="mole-eye right-eye" position="0.2 0.5 0.45" radius="0.07" color="black"></a-sphere>
             <a-sphere position="0 0.35 0.5" radius="0.09" color="#f6a4b5"></a-sphere>
+
+            <a-entity class="hit-eye hit-eye-left" visible="false">
+              <a-box position="-0.2 0.5 0.47" width="0.04" height="0.22" depth="0.02" rotation="0 0 45" color="black"></a-box>
+              <a-box position="-0.2 0.5 0.47" width="0.04" height="0.22" depth="0.02" rotation="0 0 -45" color="black"></a-box>
+            </a-entity>
+            <a-entity class="hit-eye hit-eye-right" visible="false">
+              <a-box position="0.2 0.5 0.47" width="0.04" height="0.22" depth="0.02" rotation="0 0 45" color="black"></a-box>
+              <a-box position="0.2 0.5 0.47" width="0.04" height="0.22" depth="0.02" rotation="0 0 -45" color="black"></a-box>
+            </a-entity>
+            <a-sphere class="mole-nose" position="0 0.35 0.5" radius="0.09" color="#f6a4b5"></a-sphere>
           `;
 
           this.el.addEventListener("click", (event) => {
@@ -249,10 +259,36 @@
         moles[index]
           .querySelectorAll(".mole-body")
           .forEach((body) => body.setAttribute("color", color.body));
+
+        const leftEye = moles[index].querySelector(".left-eye");
+        const rightEye = moles[index].querySelector(".right-eye");
+
+        leftEye.setAttribute("visible", true);
+        rightEye.setAttribute("visible", true);
+
+        leftEye.setAttribute("color", color.eye);
+        rightEye.setAttribute("color", color.eye);
+
         moles[index]
-          .querySelectorAll(".mole-eye")
-          .forEach((eye) => eye.setAttribute("color", color.eye));
-      }
+        .querySelectorAll(".hit-eye")
+        .forEach((eye) => {
+          eye.setAttribute("visible", false);
+        });
+
+        if (type === "bad") {
+          leftEye.setAttribute("rotation", "0 0 -25");
+          rightEye.setAttribute("rotation", "0 0 25");
+
+          leftEye.setAttribute("scale", "1.5 0.35 1");
+          rightEye.setAttribute("scale", "1.5 0.35 1");
+        } else {
+          leftEye.setAttribute("rotation", "0 0 0");
+          rightEye.setAttribute("rotation", "0 0 0");
+          
+          leftEye.setAttribute("scale", "1 1 1");
+          rightEye.setAttribute("scale", "1 1 1");
+    }
+  }
 
       function occupiedCount() {
         return moleState.filter(Boolean).length;
@@ -387,6 +423,18 @@
         const isBad = moleType[index] === "bad";
         score += isBad ? -1 : 1;
         scoreText.setAttribute("value", "SCORE : " + score);
+
+        const mole = moles[index];
+
+        mole.querySelectorAll(".mole-eye")
+            .forEach((eye) => {
+              eye.setAttribute("visible", false);
+          });
+
+        mole.querySelectorAll(".hit-eye")
+            .forEach((eye) => {
+              eye.setAttribute("visible", true);
+          });
 
         const flash = isBad ? "#ffffff" : "#ff0000";
         moles[index]
