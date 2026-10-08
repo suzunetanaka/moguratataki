@@ -37,6 +37,47 @@
           });
         },
       });
+
+      // 雲
+      AFRAME.registerComponent("cloud", {
+        schema: {
+          speed: { default: 0.6 }, //流れる速さ(単位/秒)
+          limit: { default: 70 }, //この X を超えたら反対側へ戻す
+        },
+        init: function () {
+          //[x, y, z, 半径] ふくらみの配置
+          const puffs = [
+            [0, 0, 0, 2.2],
+            [2.1, -0.2, 0.2, 1.7],
+            [-2.1, -0.3, 0, 1.6],
+            [1.0, 0.9, 0, 1.5],
+            [-0.9, 0.8, 0.1, 1.4],
+            [3.5, -0.5, 0, 1.1],
+            [-3.4, -0.5, 0, 1.0],
+          ];
+          puffs.forEach(([x, y, z, r]) => {
+            const jitter = 0.85 + Math.random() * 0.3; 
+            const puff = document.createElement("a-sphere");
+            puff.setAttribute("radius", (r * jitter).toFixed(2));
+            puff.setAttribute("segments-width", 16);
+            puff.setAttribute("segments-height", 12);
+            puff.setAttribute("scale", "1 0.7 0.8"); 
+            puff.setAttribute("position", `${x} ${y} ${z}`);
+            puff.setAttribute(
+              "material",
+              "shader: flat; color: #ffffff; opacity: 0.95; transparent: true",
+            );
+            this.el.appendChild(puff);
+          });
+        },
+        tick: function (time, delta) {
+          const pos = this.el.object3D.position;
+          pos.x += (this.data.speed * delta) / 1000;
+          if (pos.x > this.data.limit) {
+            pos.x = -this.data.limit;
+          }
+        },
+      });
     </script>
   </head>
 
@@ -55,6 +96,16 @@
 
       <!--<a-sky color="#87CEEB"></a-sky>-->
       <a-sky color="#76BDEB"></a-sky>
+      
+      <!-- 雲（speed が大きいほど速く流れる） -->
+      <a-entity cloud="speed: 0.5" position="-50 9 -40" scale="1.6 1.6 1.6"></a-entity>
+      <a-entity cloud="speed: 0.8" position="-20 13 -50" scale="1.2 1.2 1.2"></a-entity>
+      <a-entity cloud="speed: 0.4" position="15 10 -45" scale="2 2 2"></a-entity>
+      <a-entity cloud="speed: 0.7" position="45 14 -55" scale="1.4 1.4 1.4"></a-entity>
+      <a-entity cloud="speed: 0.6" position="-35 7 -28" scale="1 1 1"></a-entity>
+      <a-entity cloud="speed: 0.9" position="30 8 -30" scale="0.9 0.9 0.9"></a-entity>
+      <a-entity cloud="speed: 0.5" position="0 16 -60" scale="1.8 1.8 1.8"></a-entity>
+      
       <a-plane
         position="0 0 -5"
         rotation="-90 0 0"
