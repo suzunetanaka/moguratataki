@@ -78,6 +78,32 @@
           }
         },
       });
+
+      //花（仮）
+      AFRAME.registerComponent("flower", {
+        schema: {
+          color: { default: "#ffffff" }, //花びらの色
+          size: { default: 2.2 }, //花の大きさ
+        },
+        init: function () {
+          let petals = "";
+          for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            const px = (Math.cos(angle) * 0.09).toFixed(3);
+            const pz = (Math.sin(angle) * 0.09).toFixed(3);
+            petals += `<a-sphere position="${px} 0.25 ${pz}" radius="0.06" color="${this.data.color}"></a-sphere>`;
+          }
+
+          this.el.innerHTML = `
+            <a-cylinder position="0 0.125 0" radius="0.01" height="0.25" color="#2e7d32"></a-cylinder>
+            ${petals}
+            <a-sphere position="0 0.25 0" radius="0.05" color="#ffeb3b"></a-sphere>
+          `;
+
+          const s = this.data.size;
+          this.el.setAttribute("scale", `${s} ${s} ${s}`);
+        },
+      });
     </script>
   </head>
 
@@ -143,6 +169,26 @@
       <a-entity id="mole6" mogura position="-3 0.001 -2.5" visible="false"></a-entity>
       <a-entity id="mole7" mogura position="7.5 0.001 -13.5" visible="false"></a-entity>
       <a-entity id="mole8" mogura position="4 0.001 -3" visible="false"></a-entity>
+
+            <!-- 花（奥） -->
+      <a-entity flower="color: #ff8fb1" position="-9.5 0 -15.5"></a-entity>
+      <a-entity flower="color: #ffd54f" position="-3.5 0 -15.5"></a-entity>
+      <a-entity flower="color: #ffffff" position="2.5 0 -15.5"></a-entity>
+      <a-entity flower="color: #ce93d8" position="8.5 0 -15.5"></a-entity>
+
+      <!-- 花（右） -->
+      <a-entity flower="color: #ff7043" position="10.5 0 -10.5"></a-entity>
+      <a-entity flower="color: #ff8fb1" position="10.5 0 -5.5"></a-entity>
+
+      <!-- 花（手前） -->
+      <a-entity flower="color: #ffffff" position="9 0 0"></a-entity>
+      <a-entity flower="color: #ffd54f" position="3 0 0"></a-entity>
+      <a-entity flower="color: #ce93d8" position="-3 0 0"></a-entity>
+      <a-entity flower="color: #ff7043" position="-9 0 0"></a-entity>
+
+      <!-- 花（左） -->
+      <a-entity flower="color: #ff8fb1" position="-9.5 0 -5.5"></a-entity>
+      <a-entity flower="color: #ffffff" position="-9.5 0 -10.5"></a-entity>
 
       <a-box
         id="startButton"
