@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -187,16 +187,35 @@
       const MAX_NORMAL_STREAK = 5; //この数まで通常が続いたら次は必ずマイナス
       const STAY_NORMAL = 1000; //通常モグラが顔を出している時間(ms)
       const STAY_BAD = 700; //マイナスモグラが顔を出している時間(ms)
+      const STAY_GOLD = 600; //+3モグラが顔を出している時間(ms)。レアなので短め
+      const GOLD_RATE = 0.12; //通常モグラの出現のうち、+3モグラになる確率
+      const MAX_GOLD_AT_ONCE = 1; //+3モグラが同時に出られる最大数
       const MOVE_TIME = 150; //出入りのアニメーション時間(ms)
-      const NORMAL_INTERVAL = 900;
+      const NORMAL_INTERVAL = 900; //前半の出現間隔(ms)
+      const NORMAL_INTERVAL_SECOND = 600; //後半の出現間隔(ms)。小さいほど数が増える
+      const SECOND_HALF_TIME = 15; //残りこの秒数以下を後半とする
       const BAD_INTERVAL = STAY_BAD + MOVE_TIME + 100;
       let normalSpawnStreak = 0; //マイナス出現後に続いた通常モグラの数
+      let pendingBad = false; //マイナスを出すと決めて、出せる状態になるのを待っているか
 
       //モグラの種類ごとの色
       const COLORS = {
         normal: { body: "#A66A3F", eye: "black" },
         bad: { body: "#8E24AA", eye: "black" },
+        gold: { body: "#FFC107", eye: "black" },
       };
+
+      //モグラの種類ごとの得点・叩いた時の色・顔を出している時間
+      const POINTS = { normal: 1, bad: -1, gold: 3 };
+      const HIT_FLASH = { normal: "#ff0000", bad: "#ffffff", gold: "#ffffff" };
+      const STAY_TIME = { normal: STAY_NORMAL, bad: STAY_BAD, gold: STAY_GOLD };
+
+      //叩いた時に浮かぶ得点表示（ここに無い種類は表示しない。通常にも出したい場合は normal を追加）
+      const POPUP = {
+        gold: { text: "+3", color: "#FFD600" },
+        bad: { text: "-1", color: "#FF1744" },
+      };
+      const POPUP_TIME = 700; //得点表示が消えるまでの時間(ms)
 
       //穴ごとのモグラ・タイマー・状態
       const moles = [];
@@ -269,9 +288,7 @@
         leftEye.setAttribute("color", color.eye);
         rightEye.setAttribute("color", color.eye);
 
-        moles[index]
-        .querySelectorAll(".hit-eye")
-        .forEach((eye) => {
+        moles[index].querySelectorAll(".hit-eye").forEach((eye) => {
           eye.setAttribute("visible", false);
         });
 
@@ -284,14 +301,32 @@
         } else {
           leftEye.setAttribute("rotation", "0 0 0");
           rightEye.setAttribute("rotation", "0 0 0");
-          
+
           leftEye.setAttribute("scale", "1 1 1");
           rightEye.setAttribute("scale", "1 1 1");
-    }
-  }
+        }
+      }
 
       function occupiedCount() {
         return moleState.filter(Boolean).length;
+      }
+
+      //今出ている(引っ込み終わっていない)+3モグラの数
+      function activeGoldCount() {
+        let count = 0;
+        for (let index = 0; index < moleState.length; index++) {
+          if (moleState[index] && moleType[index] === "gold") {
+            count++;
+          }
+        }
+        return count;
+      }
+
+      //今の残り時間に合わせた、通常モグラの出現間隔
+      function currentNormalInterval() {
+        return time <= SECOND_HALF_TIME
+          ? NORMAL_INTERVAL_SECOND
+          : NORMAL_INTERVAL;
       }
 
       //次の出現を予約（出現ループは常に1本だけにする）
@@ -308,28 +343,38 @@
 
         //通常が3匹以上続いた後だけマイナスを候補にする
         //通常が5匹続いた時は、確率に関係なくマイナスを出す
-        const canSpawnBad = normalSpawnStreak >= MIN_NORMAL_STREAK;
-        const wantBad =
-          canSpawnBad &&
-          (normalSpawnStreak >= MAX_NORMAL_STREAK ||
-            Math.random() < BAD_RATE);
-        if (wantBad) {
+        //一度「マイナスを出す」と決めたら、出せるまで取り消さない（毎回抽選し直さない）
+        if (!pendingBad && normalSpawnStreak >= MIN_NORMAL_STREAK) {
+          if (
+            normalSpawnStreak >= MAX_NORMAL_STREAK ||
+            Math.random() < BAD_RATE
+          ) {
+            pendingBad = true;
+          }
+        }
+
+        if (pendingBad) {
           // マイナスモグラは必ず単独で出し、出現制御の競合を防ぐ。
+          // 他のモグラが全員引っ込むまで、新しい通常モグラは出さずに待つ。
           if (occupiedCount() > 0) {
             scheduleNext(50);
             return;
           }
           if (showMole("bad")) {
+            pendingBad = false;
             normalSpawnStreak = 0;
             scheduleNext(BAD_INTERVAL);
             return;
           }
         }
 
-        if (showMole("normal")) {
+        //通常枠のうち、たまに+3モグラに差し替える（同時に出るのは1匹まで）
+        const wantGold =
+          Math.random() < GOLD_RATE && activeGoldCount() < MAX_GOLD_AT_ONCE;
+        if (showMole(wantGold ? "gold" : "normal")) {
           normalSpawnStreak++;
         }
-        scheduleNext(NORMAL_INTERVAL);
+        scheduleNext(currentNormalInterval());
       }
 
       //空いている穴をランダムに選んでモグラを1匹出す
@@ -374,8 +419,10 @@
           `property: position; to: ${position.x} 0 ${position.z}; dur: ${MOVE_TIME}`,
         );
 
-        const stayTime = type === "bad" ? STAY_BAD : STAY_NORMAL;
-        moleTimer[index] = setTimeout(() => retractMole(index), stayTime);
+        moleTimer[index] = setTimeout(
+          () => retractMole(index),
+          STAY_TIME[type],
+        );
         return true;
       }
 
@@ -408,6 +455,37 @@
         }, MOVE_TIME);
       }
 
+      //叩いた穴の上に得点を浮かべて、少しして消す（穴の状態管理とは無関係の飾りなので、連続で叩いても影響しない）
+      function showScorePopup(index, type) {
+        const popup = POPUP[type];
+        if (!popup) {
+          return;
+        }
+
+        const position = moles[index].getAttribute("position");
+        const label = document.createElement("a-text");
+        label.setAttribute("value", popup.text);
+        label.setAttribute("color", popup.color);
+        label.setAttribute("align", "center");
+        label.setAttribute("scale", "3 3 3");
+        label.setAttribute("position", `${position.x} 1.9 ${position.z + 0.6}`);
+        label.setAttribute(
+          "animation__up",
+          `property: position; to: ${position.x} 2.8 ${position.z + 0.6}; dur: ${POPUP_TIME}; easing: easeOutQuad`,
+        );
+        label.setAttribute(
+          "animation__shrink",
+          `property: scale; to: 0 0 0; dur: 250; delay: ${POPUP_TIME - 250}; easing: easeInQuad`,
+        );
+        document.querySelector("a-scene").appendChild(label);
+
+        setTimeout(function () {
+          if (label.parentNode) {
+            label.parentNode.removeChild(label);
+          }
+        }, POPUP_TIME);
+      }
+
       //モグラを叩いた時のスコア・色・引っ込み処理
       window.hitMole = function (index) {
         if (!playing || !moleState[index] || !moleHittable[index]) {
@@ -420,23 +498,22 @@
         moleHittable[index] = false;
         clearTimeout(moleTimer[index]);
 
-        const isBad = moleType[index] === "bad";
-        score += isBad ? -1 : 1;
+        const type = moleType[index];
+        score += POINTS[type];
         scoreText.setAttribute("value", "SCORE : " + score);
+        showScorePopup(index, type);
 
         const mole = moles[index];
 
-        mole.querySelectorAll(".mole-eye")
-            .forEach((eye) => {
-              eye.setAttribute("visible", false);
-          });
+        mole.querySelectorAll(".mole-eye").forEach((eye) => {
+          eye.setAttribute("visible", false);
+        });
 
-        mole.querySelectorAll(".hit-eye")
-            .forEach((eye) => {
-              eye.setAttribute("visible", true);
-          });
+        mole.querySelectorAll(".hit-eye").forEach((eye) => {
+          eye.setAttribute("visible", true);
+        });
 
-        const flash = isBad ? "#ffffff" : "#ff0000";
+        const flash = HIT_FLASH[type];
         moles[index]
           .querySelectorAll(".mole-body")
           .forEach((body) => body.setAttribute("color", flash));
@@ -444,7 +521,7 @@
         retractMole(index);
       };
 
-    // スタートボタン：状態を初期化してゲームを開始
+      // スタートボタン：状態を初期化してゲームを開始
       startButton.addEventListener("click", function (event) {
         event.stopPropagation();
         if (playing) {
@@ -459,6 +536,7 @@
         time = 30;
         score = 0;
         normalSpawnStreak = 0;
+        pendingBad = false;
 
         timeText.setAttribute("value", "TIME : " + time);
         scoreText.setAttribute("value", "SCORE : " + score);
@@ -486,13 +564,14 @@
             clearInterval(timer);
             clearTimeout(game);
             playing = false;
+            pendingBad = false;
             startSound.pause();
 
             for (let index = 0; index < moles.length; index++) {
               clearTimeout(moleTimer[index]);
               retractMole(index);
             }
-            
+
             // タイムアップ表示
             timeUpText.setAttribute("value", "TIME UP!");
             timeUpText.setAttribute("visible", true);
