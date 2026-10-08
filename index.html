@@ -27,14 +27,6 @@
             </a-entity>
             <a-sphere class="mole-nose" position="0 0.35 0.5" radius="0.09" color="#f6a4b5"></a-sphere>
           `;
-
-          this.el.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const id = this.el.getAttribute("id");
-            if (id && id.startsWith("mole")) {
-              window.hitMole(Number.parseInt(id.replace("mole", ""), 10));
-            }
-          });
         },
       });
 
@@ -691,6 +683,313 @@
 
         scheduleNext(NORMAL_INTERVAL);
       });
+
+            // ===== ボールを飛ばす機能 =====
+
+// ===== ボールを飛ばす共通処理 =====
+
+const BALL_SPEED = 45;
+const BALL_RADIUS = 0.25;
+
+
+// ---------------------------------
+// 共通：ボールを生成して飛ばす
+// ---------------------------------
+function shootBall(source, customDirection = null) {
+  if (!playing) return;
+
+  const scene = document.querySelector("a-scene");
+
+  const sourceObject =
+    source.getObject3D("camera") || source.object3D;
+
+  const position = new THREE.Vector3();
+  const direction = new THREE.Vector3();
+  const rotation = new THREE.Quaternion();
+
+  // 発射位置
+  sourceObject.getWorldPosition(position);
+
+  // 発射方向
+  if (customDirection) {
+    direction.copy(customDirection).normalize();
+  } else {
+    sourceObject.getWorldQuaternion(rotation);
+
+    direction
+      .set(0, 0, -1)
+      .applyQuaternion(rotation)
+      .normalize();
+  }
+
+  // 発射元の少し前から出す
+  position.addScaledVector(direction, 0.8);
+
+  // ボール生成
+  const ball = document.createElement("a-sphere");
+
+  ball.setAttribute("radius", BALL_RADIUS);
+  ball.setAttribute(
+    "material",
+    "color: #ff0000; emissive: #660000"
+  );
+
+  scene.appendChild(ball);
+
+  ball.object3D.position.copy(position);
+
+  let previousTime = null;
+  let elapsed = 0;
+
+
+  // ---------------------------------
+  // ボール移動
+  // ---------------------------------
+  function moveBall(timestamp) {
+    if (!ball.parentNode) return;
+
+    if (!playing) {
+      ball.remove();
+      return;
+    }
+
+    if (previousTime === null) {
+      previousTime = timestamp;
+    }
+
+    const dt = Math.min(
+      (timestamp - previousTime) / 1000,
+      0.05
+    );
+
+    previousTime = timestamp;
+    elapsed += dt;
+
+
+    // 移動前の位置
+    const oldPosition =
+      ball.object3D.position.clone();
+
+
+    // ボールを前へ移動
+    ball.object3D.position.addScaledVector(
+      direction,
+      BALL_SPEED * dt
+    );
+
+
+    // ---------------------------------
+    // モグラとの当たり判定
+    // ---------------------------------
+
+    const newPosition =
+      ball.object3D.position.clone();
+
+    const movement =
+      newPosition.clone().sub(oldPosition);
+
+    const movementLength =
+      movement.length();
+
+    if (movementLength > 0) {
+      movement.normalize();
+
+      const raycaster = new THREE.Raycaster();
+
+      raycaster.set(
+        oldPosition,
+        movement
+      );
+
+      raycaster.far =
+        movementLength + BALL_RADIUS;
+
+
+      for (let i = 0; i < moles.length; i++) {
+
+        if (!moleHittable[i]) continue;
+
+        const meshes = [];
+
+        moles[i]
+          .querySelectorAll(".mole-body")
+          .forEach((part) => {
+
+            const mesh =
+              part.getObject3D("mesh");
+
+            if (mesh) {
+              meshes.push(mesh);
+            }
+          });
+
+
+        const hits =
+          raycaster.intersectObjects(
+            meshes,
+            true
+          );
+
+
+        if (hits.length > 0) {
+
+          console.log(
+            "モグラ命中",
+            i
+          );
+
+          window.hitMole(i);
+
+          ball.remove();
+
+          return;
+        }
+      }
+    }
+
+
+    // 3秒経ったら削除
+    if (elapsed >= 3) {
+      ball.remove();
+      return;
+    }
+
+    requestAnimationFrame(moveBall);
+  }
+
+  requestAnimationFrame(moveBall);
+}
+
+
+
+// =================================
+// PC・スマホ
+// クリック / タップした方向に発射
+// =================================
+
+function shootFromScreen(clientX, clientY) {
+  if (!playing) return;
+
+  const cameraEl =
+    document.querySelector("a-camera");
+
+  const camera =
+    cameraEl.getObject3D("camera");
+
+  if (!camera) return;
+
+
+  // 画面座標を -1 ～ 1 に変換
+  const mouse =
+    new THREE.Vector2();
+
+  mouse.x =
+    (clientX / window.innerWidth) * 2 - 1;
+
+  mouse.y =
+    -(clientY / window.innerHeight) * 2 + 1;
+
+
+  // クリック位置の方向を取得
+  const raycaster =
+    new THREE.Raycaster();
+
+  raycaster.setFromCamera(
+    mouse,
+    camera
+  );
+
+
+  const direction =
+    raycaster.ray.direction.clone();
+
+
+  shootBall(
+    cameraEl,
+    direction
+  );
+}
+
+
+
+// =================================
+// PC：クリック
+// =================================
+
+window.addEventListener(
+  "click",
+  function (event) {
+
+    if (!playing) return;
+
+    // 音量UIは除外
+    if (
+      event.target.closest("#audioControls")
+    ) {
+      return;
+    }
+
+    shootFromScreen(
+      event.clientX,
+      event.clientY
+    );
+  }
+);
+
+
+
+// =================================
+// スマホ：タップ
+// =================================
+
+window.addEventListener(
+  "touchstart",
+  function (event) {
+
+    if (!playing) return;
+
+    // 音量UIを触った場合は除外
+    if (
+      event.target.closest("#audioControls")
+    ) {
+      return;
+    }
+
+    if (
+      event.touches.length === 0
+    ) {
+      return;
+    }
+
+    const touch =
+      event.touches[0];
+
+    shootFromScreen(
+      touch.clientX,
+      touch.clientY
+    );
+  }
+);
+
+
+
+// =================================
+// VR：右コントローラー
+// =================================
+
+const rightController =
+  document.querySelector("#ctlR");
+
+rightController.addEventListener(
+  "triggerdown",
+  function () {
+
+    shootBall(
+      rightController
+    );
+
+  }
+);
     </script>
   </body>
 </html>
