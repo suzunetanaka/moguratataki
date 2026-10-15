@@ -691,99 +691,45 @@
 const BALL_SPEED = 45;
 const BALL_RADIUS = 0.25;
 
+AFRAME.registerComponent("ball-move", {
+  schema: {
+    direction: { type: "vec3" },
+    speed: { default: 45 }
+  },
 
-// ---------------------------------
-// 共通：ボールを生成して飛ばす
-// ---------------------------------
-function shootBall(source, customDirection = null) {
-  if (!playing) return;
+  init: function () {
+    this.elapsed = 0;
+  },
 
-  const scene = document.querySelector("a-scene");
-
-  const sourceObject =
-    source.getObject3D("camera") || source.object3D;
-
-  const position = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-  const rotation = new THREE.Quaternion();
-
-  // 発射位置
-  sourceObject.getWorldPosition(position);
-
-  // 発射方向
-  if (customDirection) {
-    direction.copy(customDirection).normalize();
-  } else {
-    sourceObject.getWorldQuaternion(rotation);
-
-    direction
-      .set(0, 0, -1)
-      .applyQuaternion(rotation)
-      .normalize();
-  }
-
-  // 発射元の少し前から出す
-  position.addScaledVector(direction, 0.8);
-
-  // ボール生成
-  const ball = document.createElement("a-sphere");
-
-  ball.setAttribute("radius", BALL_RADIUS);
-  ball.setAttribute(
-    "material",
-    "color: #ff0000; emissive: #660000"
-  );
-
-  scene.appendChild(ball);
-
-  ball.object3D.position.copy(position);
-
-  let previousTime = null;
-  let elapsed = 0;
-
-
-  // ---------------------------------
-  // ボール移動
-  // ---------------------------------
-  function moveBall(timestamp) {
-    if (!ball.parentNode) return;
-
+  tick: function (time, delta) {
     if (!playing) {
-      ball.remove();
+      this.el.remove();
       return;
     }
 
-    if (previousTime === null) {
-      previousTime = timestamp;
-    }
+    const dt = Math.min(delta / 1000, 0.05);
 
-    const dt = Math.min(
-      (timestamp - previousTime) / 1000,
-      0.05
-    );
+    this.elapsed += dt;
 
-    previousTime = timestamp;
-    elapsed += dt;
+    const direction = new THREE.Vector3(
+      this.data.direction.x,
+      this.data.direction.y,
+      this.data.direction.z
+    ).normalize();
 
-
-    // 移動前の位置
+    // 移動前
     const oldPosition =
-      ball.object3D.position.clone();
+      this.el.object3D.position.clone();
 
-
-    // ボールを前へ移動
-    ball.object3D.position.addScaledVector(
+    // ボールを移動
+    this.el.object3D.position.addScaledVector(
       direction,
-      BALL_SPEED * dt
+      this.data.speed * dt
     );
 
-
-    // ---------------------------------
-    // モグラとの当たり判定
-    // ---------------------------------
-
+    // 移動後
     const newPosition =
-      ball.object3D.position.clone();
+      this.el.object3D.position.clone();
 
     const movement =
       newPosition.clone().sub(oldPosition);
@@ -791,10 +737,12 @@ function shootBall(source, customDirection = null) {
     const movementLength =
       movement.length();
 
+    // モグラとの当たり判定
     if (movementLength > 0) {
       movement.normalize();
 
-      const raycaster = new THREE.Raycaster();
+      const raycaster =
+        new THREE.Raycaster();
 
       raycaster.set(
         oldPosition,
@@ -803,7 +751,6 @@ function shootBall(source, customDirection = null) {
 
       raycaster.far =
         movementLength + BALL_RADIUS;
-
 
       for (let i = 0; i < moles.length; i++) {
 
@@ -823,41 +770,111 @@ function shootBall(source, customDirection = null) {
             }
           });
 
-
         const hits =
           raycaster.intersectObjects(
             meshes,
             true
           );
 
-
         if (hits.length > 0) {
 
-          console.log(
-            "モグラ命中",
-            i
-          );
+          console.log("モグラ命中", i);
 
           window.hitMole(i);
 
-          ball.remove();
+          this.el.remove();
 
           return;
         }
       }
     }
 
-
-    // 3秒経ったら削除
-    if (elapsed >= 3) {
-      ball.remove();
-      return;
+    // 3秒後に削除
+    if (this.elapsed >= 3) {
+      this.el.remove();
     }
+  }
+});
 
-    requestAnimationFrame(moveBall);
+// ---------------------------------
+// 共通：ボールを生成して飛ばす
+// ---------------------------------
+function shootBall(source, customDirection = null) {
+  if (!playing) return;
+
+  const scene =
+    document.querySelector("a-scene");
+
+  const sourceObject =
+    source.getObject3D("camera") ||
+    source.object3D;
+
+  const position =
+    new THREE.Vector3();
+
+  const direction =
+    new THREE.Vector3();
+
+  const rotation =
+    new THREE.Quaternion();
+
+  // 発射位置
+  sourceObject.getWorldPosition(position);
+
+  // 発射方向
+  if (customDirection) {
+
+    direction
+      .copy(customDirection)
+      .normalize();
+
+  } else {
+
+    sourceObject.getWorldQuaternion(rotation);
+
+    direction
+      .set(0, 0, -1)
+      .applyQuaternion(rotation)
+      .normalize();
   }
 
-  requestAnimationFrame(moveBall);
+  // コントローラー・カメラの少し前から出す
+  position.addScaledVector(
+    direction,
+    0.3
+  );
+
+  // ボール生成
+  const ball =
+    document.createElement("a-sphere");
+
+  ball.setAttribute(
+    "radius",
+    BALL_RADIUS
+  );
+
+  ball.setAttribute(
+    "material",
+    "color: #ff0000; emissive: #660000"
+  );
+
+  // A-Frameのtickで移動
+  ball.setAttribute(
+    "ball-move",
+    {
+      direction: {
+        x: direction.x,
+        y: direction.y,
+        z: direction.z
+      },
+
+      speed: BALL_SPEED
+    }
+  );
+
+  scene.appendChild(ball);
+
+  ball.object3D.position.copy(position);
 }
 
 
