@@ -822,21 +822,37 @@ function shootBall(source, customDirection = null) {
   sourceObject.getWorldPosition(position);
 
   // 発射方向
-  if (customDirection) {
+// 発射方向
+if (customDirection) {
 
-    direction
-      .copy(customDirection)
-      .normalize();
+  // PC・スマホ
+  direction
+    .copy(customDirection)
+    .normalize();
 
-  } else {
+} else if (
+  source.components &&
+  source.components.raycaster
+) {
 
-    sourceObject.getWorldQuaternion(rotation);
+  // VR：レーザーポインターと同じ方向
+  const ray =
+    source.components.raycaster.raycaster.ray;
 
-    direction
-      .set(0, 0, -1)
-      .applyQuaternion(rotation)
-      .normalize();
-  }
+  direction
+    .copy(ray.direction)
+    .normalize();
+
+} else {
+
+  // 念のための予備処理
+  sourceObject.getWorldQuaternion(rotation);
+
+  direction
+    .set(0, 0, -1)
+    .applyQuaternion(rotation)
+    .normalize();
+}
 
   // コントローラー・カメラの少し前から出す
   position.addScaledVector(
